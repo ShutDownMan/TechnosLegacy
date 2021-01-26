@@ -1,3 +1,6 @@
+# Custom
+*.FDB
+
 # Logs
 logs
 *.log

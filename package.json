@@ -1,0 +1,15 @@
+{
+  "name": "TechnosLegacy",
+  "version": "0.1.0",
+  "author": "Jedson Gabriel",
+  "description": "App for searching Technos' old database",
+  "main": "./src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^11.2.1"
+  }
+}
