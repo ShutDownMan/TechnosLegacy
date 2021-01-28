@@ -11,5 +11,9 @@
   "license": "ISC",
   "devDependencies": {
     "electron": "^11.2.1"
+  },
+  "dependencies": {
+    "fuzzy-search": "^3.2.1",
+    "node-firebird": "^0.9.9"
   }
 }
