@@ -1,91 +1,243 @@
 var Firebird = require('node-firebird');
 var FuzzySearch = require('fuzzy-search');
-var alunosList = undefined;
+const { ipcRenderer } = require('electron');
+var mainList = undefined;
 var dbPool = undefined;
 var searcher = undefined;
+var column1 = undefined;
+var column2 = undefined;
+var currentPage = undefined;
 
 function initializeDB(unidade) {
-    /// TODO: get fullpath from user
-    let options = {
-        database: `D:\\Documents\\GitHub\\TechnosLegacy\\src\\data\\${unidade}.FDB`,
-        user: 'SYSDBA',
-        password: 'masterkey'
-    }
-    
-    dbPool = Firebird.pool(5, options);
-    
-    /*
-    dbPool.get(function (err, db) {
-        if(err) throw err;
-        
-        
-    });
-    */
-    // pool.destroy();
+	/// TODO: get fullpath from user
+	let options = {
+		database: `D:\\Documents\\GitHub\\TechnosLegacy\\src\\data\\${unidade}.FDB`,
+		user: 'SYSDBA',
+		password: 'masterkey'
+		// win1252
+	}
+	
+	dbPool = Firebird.pool(5, options);
+	
+	/*
+	dbPool.get(function (err, db) {
+		if(err) throw err;
+		
+		
+	});
+	*/
+	// pool.destroy();
+}
+
+function initializeList() {
+	column1 = document.querySelector('#table_column1');
+	column2 = document.querySelector('#table_column2');
+	currentPage = document.querySelector('#current_page')
+
+	column1.innerHTML = "ID";
+	column2.innerHTML = "Nome";
+	currentPage.innerHTML = "Home";
+	
+	column1.setAttribute('data-sort', 'column1');
+	column2.setAttribute('data-sort', 'column2');
+	
+	let options = {
+		valueNames: [ 'column1', 'column2' ]
+	};
+	mainList = new List('mainList', options);
+	mainList.remove('column1', '0');
+	mainList.add([{column1: -1, column2: 'Sem resultados'}]);
 }
 
 function getAllAlunosFromDatabse(unidade) {    
-    return new Promise(function (resolve, reject) {
-        dbPool.get(function (err, db) {
-            if(err) throw err;
-            
-            // db = DATABASE
-            db.query('SELECT r.ID, r.NOME FROM ALUNO r', function(err, result) {
-                if(err) throw err;
-                
-                resolve(result);
-                
-                // IMPORTANT: release the pool connection
-                db.detach();
-            });
-        });
-    });
+	return new Promise(function (resolve, reject) {
+		dbPool.get(function (err, db) {
+			if(err) throw err;
+			
+			// db = DATABASE
+			db.query('SELECT r.ID_ALUNO, r.NOME FROM ALUNOS r', function(err, result) {
+				if(err) throw err;
+				
+				result = result.map(function(currentValue, index, arr) {
+					return {column1: currentValue.ID_ALUNO, column2: currentValue.NOME};
+				});
+				
+				resolve(result);
+				
+				// IMPORTANT: release the pool connection
+				db.detach();
+			});
+		});
+	});
+}
+
+function getAlunoByID(idAluno) {
+	return new Promise(function (resolve, reject) {
+		dbPool.get(function (err, db) {
+			if(err) throw err;
+			
+			db.query(`SELECT * FROM ALUNOS r WHERE r.ID_ALUNO = ?`, [parseInt(idAluno)], function(err, result) {
+				if(err) throw err;
+				
+				/*
+				result = result.map(function(currentValue, index, arr) {
+					return {column1: currentValue.ID_ALUNO, column2: currentValue.NOME};
+				});
+				*/
+				
+				resolve(result);
+				
+				db.detach();
+			});
+		});
+	});
+}
+
+function getDescricao(value) {
+	return new Promise(function (resolve, reject) {
+		// first row
+		value.DESCRICAO(function(err, name, e) {
+			let buffers = [];
+			console.log(name);
+			
+			if (err) {
+				reject();
+				throw err;
+			}
+			
+			// e === EventEmitter
+			e.on('data', function(chunk) {
+				// console.log(chunk);
+				buffers.push(chunk);
+			});
+			
+			e.on('end', function() {
+				// console.log(buffers);
+				let buffer = buffers.toString('binary');
+				// console.log(buffer);
+				resolve(buffer);
+			})
+			
+		});
+	});
+}
+
+function getFollowUpsByIDAluno(idAluno) {
+	return new Promise(function (resolve, reject) {
+		dbPool.get(function (err, db) {
+			if(err) throw err;
+			
+			db.query(`SELECT r.DATA_CONTATO, CAST(r.DESCRICAO as BLOB SUB_TYPE 0) as DESCRICAO FROM FOLLOW_UP r WHERE r.ID_ALUNO = ?`, [parseInt(idAluno)],
+			async function(err, result, e) {
+				if(err) throw err;
+				
+				result = result.map(async function(currentValue, index, arr) {
+					// console.log(currentValue.DATA_CONTATO);
+					// console.log(await getDescricao(currentValue));
+					return {column1: currentValue.DATA_CONTATO, column2: await getDescricao(currentValue)};
+				});
+
+				resolve(Promise.all(result));
+				
+				db.detach();
+			});
+		});
+	}); 
 }
 
 (async function ($) {
-    "use strict";
-    
-    /// initializing list
-    let options = {
-        valueNames: [ 'ID', 'NOME' ]
-    };
-    alunosList = new List('alunosTable', options);
-    alunosList.remove('ID', '0');
-    alunosList.add([{ID: 0, NOME: 'Sem resultados'}]);
-    
-    /// initialize db
-    let firebirdDB = initializeDB('CENTRO');
-    
-    /// populate it
-    let allAlunos = await getAllAlunosFromDatabse('Centro');
-    console.log(allAlunos);
-    
-    /// initialize fuzzy search
-    searcher = new FuzzySearch(allAlunos, ['NOME'], {
-        caseSensitive: false,
-        sort: true
-    });    
+	"use strict";
+	
+	/// initializing list
+	initializeList();
+	
+	/// initialize db
+	let firebirdDB = initializeDB('CENTRO');
+	
+	/// populate it
+	let allAlunos = await getAllAlunosFromDatabse('Centro');
+	console.log(allAlunos);
+	
+	/// initialize fuzzy search
+	searcher = new FuzzySearch(allAlunos, ['column2'], {
+		caseSensitive: false,
+		sort: true
+	});    
 })(jQuery);
 
 function onSearchChanged(newText) {
-    console.log(newText);
+	console.log(newText);
 
-    /// if less than 3 chars, don't search
-    if(newText.length < 3) return;
+	currentPage.innerHTML = "Home";
+	
+	/// if less than 3 chars, don't search
+	if(newText.length < 4) return;
+	
+	/// get results that match
+	let result = searcher.search(newText);
+	console.log(result);
+	
+	/// clear table list
+	mainList.clear();
+	
+	/// if no results
+	if(!result.length) {
+		/// show no results on table
+		result = [{ID: 0, NOME: 'Sem resultados'}]
+	}
+	
+	/// add objects to table
+	mainList.add(result);
+}
 
-    /// get results that match
-    let result = searcher.search(newText);
-    console.log(result);
-    
-    /// clear table list
-    alunosList.clear();
+var CurrentIDAluno = undefined;
+var CurrentNomeAluno = undefined;
+var CurrentAlunoInfo = undefined;
 
-    /// if no results
-    if(!result.length) {
-        /// show no results on table
-        result = [{ID: 0, NOME: 'Sem resultados'}]
-    }
+async function onClickAluno(idAluno, nomeAluno) {
+	// console.log(idAluno);
+	// console.log(nomeAluno);
 
-    /// add objects to table
-    alunosList.add(result);
+	if(currentPage.innerHTML !== "Home") {
+		return;
+	}
+	
+	CurrentIDAluno = idAluno;
+	CurrentNomeAluno = nomeAluno;
+	CurrentAlunoInfo = await getAlunoByID(idAluno);
+	
+	// console.log("Info Aluno");
+	// console.log(CurrentAlunoInfo);
+	
+	let navbarAlunoNameElem = document.querySelector("#navbar-aluno-name");
+	
+	if(navbarAlunoNameElem) {
+		navbarAlunoNameElem.innerHTML = nomeAluno;
+	}
+}
+
+function onClickPerfilAluno() {
+	ipcRenderer.send('get-aluno-profile-page', CurrentIDAluno);
+}
+
+async function onClickFollowUpsAluno() {
+	let followUps = await getFollowUpsByIDAluno(CurrentIDAluno);
+	
+	currentPage.innerHTML = 'Follow Ups';
+
+	console.log("FOLLOW UPS:");
+	console.log(followUps);
+	
+	column1.innerHTML = "Data";
+	column2.innerHTML = "Descrição";	
+	
+	mainList.clear();
+	if(!followUps.length) {	
+		mainList.add([{column1: -1, column2: 'Sem resultados'}]);
+	}
+	
+	mainList.add(followUps);
+	// mainList.clear();
+	
+	// mainList.add(followUps);
 }
