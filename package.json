@@ -2,18 +2,39 @@
   "name": "TechnosLegacy",
   "version": "0.1.0",
   "author": "Jedson Gabriel",
-  "description": "App for searching Technos' old database",
+  "description": "App for searching Technos' legacy database",
   "main": "./src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist64": "electron-builder --x64 --win"
   },
-  "keywords": [],
+  "keywords": [
+    "Technos",
+    "Evolua"
+  ],
   "license": "ISC",
   "devDependencies": {
-    "electron": "^11.2.1"
+    "electron": "^11.2.1",
+    "electron-builder": "^22.8.1"
   },
   "dependencies": {
+    "electron-builder": "^22.9.1",
+    "electron-is-dev": "^1.2.0",
+    "electron-updater": "^4.3.5",
     "fuzzy-search": "^3.2.1",
     "node-firebird": "^0.9.9"
-  }
+  },
+  "build": {
+    "win": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShutDownMan/TechnosLegacy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ShutDownMan/TechnosLegacy/issues"
+  },
+  "homepage": "https://github.com/ShutDownMan/TechnosLegacy#readme"
 }
